@@ -1,1 +1,218 @@
-// схема базы, см. docs/data-model.md
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PLAYER        @map("player")
+  METHODOLOGIST @map("methodologist")
+  SUPERVISOR    @map("supervisor")
+  ADMIN         @map("admin")
+
+  @@map("user_role")
+}
+
+enum VersionStatus {
+  DRAFT     @map("draft")
+  PUBLISHED @map("published")
+  ARCHIVED  @map("archived")
+
+  @@map("version_status")
+}
+
+enum AttemptStatus {
+  IN_PROGRESS @map("in_progress")
+  SUBMITTED   @map("submitted")
+  SCORED      @map("scored")
+  INVALID     @map("invalid")
+
+  @@map("attempt_status")
+}
+
+enum WebhookStatus {
+  PENDING   @map("pending")
+  SENDING   @map("sending")
+  DELIVERED @map("delivered")
+  FAILED    @map("failed")
+
+  @@map("webhook_status")
+}
+
+model User {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role         UserRole       @default(PLAYER)
+  externalId   String         @unique @map("external_id")
+  displayName  String         @map("display_name")
+  passwordHash String?        @map("password_hash")
+  orgUnitId    String?        @map("org_unit_id") @db.Uuid
+  orgUnit      OrgUnit?       @relation(fields: [orgUnitId], references: [id])
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  attempts     Attempt[]
+  points       PointsLedger[]
+  stats        UserStats?
+  achievements UserAchievement[]
+
+  @@index([orgUnitId])
+  @@map("users")
+}
+
+model OrgUnit {
+  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name   String @unique
+  region String?
+  users  User[]
+
+  @@map("org_units")
+}
+
+model Scenario {
+  id        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug      String            @unique
+  title     String
+  isActive  Boolean           @default(true) @map("is_active")
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  versions  ScenarioVersion[]
+
+  @@map("scenarios")
+}
+
+model ScenarioVersion {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scenarioId  String        @map("scenario_id") @db.Uuid
+  scenario    Scenario      @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  version     Int
+  status      VersionStatus @default(DRAFT)
+  graph       Json          @db.JsonB
+  lintReport  Json?         @map("lint_report") @db.JsonB
+  publishedAt DateTime?     @map("published_at") @db.Timestamptz(6)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  attempts    Attempt[]
+
+  @@unique([scenarioId, version])
+  @@map("scenario_versions")
+}
+
+model Attempt {
+  // Клиент может передать этот UUID при повторной отправке офлайн-попытки.
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String          @map("user_id") @db.Uuid
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scenarioVersionId String          @map("scenario_version_id") @db.Uuid
+  scenarioVersion   ScenarioVersion @relation(fields: [scenarioVersionId], references: [id], onDelete: Restrict)
+  status            AttemptStatus   @default(IN_PROGRESS)
+  outcome           String?
+  score             Int?
+  passed            Boolean?
+  metrics           Json?           @db.JsonB
+  tracks            Json?           @db.JsonB
+  timeouts          Int             @default(0)
+  avgReactionMs     Int?            @map("avg_reaction_ms")
+  clientScore       Int?            @map("client_score")
+  startedAt         DateTime        @map("started_at") @db.Timestamptz(6)
+  submittedAt       DateTime?       @map("submitted_at") @db.Timestamptz(6)
+  scoredAt          DateTime?       @map("scored_at") @db.Timestamptz(6)
+  events            AttemptEvent[]
+  ledgerEntries     PointsLedger[]
+  unlockedAchievements UserAchievement[]
+  webhookEvents     WebhookEvent[]
+
+  @@index([userId, scoredAt(sort: Desc)])
+  @@index([scenarioVersionId])
+  @@map("attempts")
+}
+
+model WebhookEvent {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId     String        @unique @map("attempt_id") @db.Uuid
+  attempt       Attempt       @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  eventType     String        @default("attempt.scored") @map("event_type")
+  payload       Json          @db.JsonB
+  status        WebhookStatus @default(PENDING)
+  attempts      Int           @default(0)
+  nextAttemptAt DateTime      @default(now()) @map("next_attempt_at") @db.Timestamptz(6)
+  lastError     String?       @map("last_error")
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  deliveredAt   DateTime?     @map("delivered_at") @db.Timestamptz(6)
+
+  @@index([status, nextAttemptAt])
+  @@map("webhook_events")
+}
+
+model AttemptEvent {
+  id         BigInt  @id @default(autoincrement())
+  attemptId  String  @map("attempt_id") @db.Uuid
+  attempt    Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  seq        Int
+  nodeId     String  @map("node_id")
+  optionId   String? @map("option_id")
+  reactionMs Int     @map("reaction_ms")
+
+  @@unique([attemptId, seq])
+  @@index([nodeId])
+  @@map("attempt_events")
+}
+
+model PointsLedger {
+  id          BigInt   @id @default(autoincrement())
+  userId      String   @map("user_id") @db.Uuid
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track       String
+  amount      Int
+  reason      String
+  attemptId   String?  @map("attempt_id") @db.Uuid
+  attempt     Attempt? @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+  externalRef String?  @map("external_ref")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([track, createdAt(sort: Desc)])
+  @@map("points_ledger")
+}
+
+model Achievement {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String @unique
+  title       String
+  description String
+  icon        String
+  tier        Int     @default(1) @db.SmallInt
+  rule        Json    @db.JsonB
+  isSecret    Boolean @default(false) @map("is_secret")
+  isActive    Boolean @default(true) @map("is_active")
+  users       UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  userId        String      @map("user_id") @db.Uuid
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String      @map("achievement_id") @db.Uuid
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  unlockedAt    DateTime    @default(now()) @map("unlocked_at") @db.Timestamptz(6)
+  attemptId     String?     @map("attempt_id") @db.Uuid
+  attempt       Attempt?    @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+
+  @@id([userId, achievementId])
+  @@map("user_achievements")
+}
+
+model UserStats {
+  userId        String   @id @map("user_id") @db.Uuid
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totalScore    Int      @default(0) @map("total_score")
+  attemptsCount Int      @default(0) @map("attempts_count")
+  passedCount   Int      @default(0) @map("passed_count")
+  avgSafety     Decimal? @map("avg_safety") @db.Decimal(5, 2)
+  avgLoyalty    Decimal? @map("avg_loyalty") @db.Decimal(5, 2)
+  streakDays    Int      @default(0) @map("streak_days")
+  lastAttemptAt DateTime? @map("last_attempt_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@index([totalScore(sort: Desc), attemptsCount])
+  @@map("user_stats")
+}
