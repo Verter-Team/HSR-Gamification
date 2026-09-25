@@ -99,11 +99,11 @@ graph TB
 
 | Компонент | В MVP | Целевая |
 | --- | --- | --- |
-| Скоринг | синхронно в запросе, `InProcessQueue` | отдельный воркер, BullMQ |
+| Скоринг | после подключения `replay()` - в процессе API; сейчас новые попытки остаются `submitted` | отдельный воркер, BullMQ |
 | Кеш и очередь | - | Redis |
 | Панель методолога | страница в PWA под ролью, граф как Mermaid | отдельное приложение, визуальный редактор |
 | Уведомления | in-app центр, endpoint подписки | Web Push VAPID, расписание по сменам |
-| Интеграция | OpenAPI + webhook `attempt.scored` с xAPI-statement в теле | полный набор событий, LRS, импорт оргструктуры |
+| Интеграция | OpenAPI + webhook `attempt.scored` с xAPI-statement в теле и Postgres outbox | полный набор событий, LRS, импорт оргструктуры |
 | Аутентификация | табельный номер + пароль, JWT | OIDC через корпоративный IdP |
 | Офлайн | очередь попыток в IndexedDB, кеш сценариев | + предзагрузка медиа по расписанию смен |
 
@@ -242,10 +242,10 @@ Web Push через VAPID, self-hosted - без FCM и внешних серви
 Пересчёт очков, проверка десятка правил достижений и обновление рейтингов - работа,
 которой не место в цикле HTTP-запроса. Архитектурно это отдельный воркер.
 
-Реализация: модуль `scoring` с интерфейсом `ScoringQueue`. Две реализации -
-`InProcessQueue` (MVP) и `BullMQQueue` (прод). Переключается переменной окружения,
-код домена не меняется. На схеме компонент присутствует честно, в разработке
-не съедает день на инфраструктуру очереди.
+Сейчас `ProgressService` атомарно сохраняет подтверждённый результат, очки,
+достижения, статистику и исходящий webhook. Автоматический вызов из
+`POST /attempts` подключается после реализации `replay()` общего движка.
+BullMQ и отдельный воркер остаются целевым расширением.
 
 ### 4.3 Почему клиент не считает очки
 
@@ -270,7 +270,10 @@ Web Push через VAPID, self-hosted - без FCM и внешних серви
 
 ### 5.2 Webhooks
 
-Исходящие события с подписью HMAC и повторными попытками:
+Исходящие события с подписью HMAC и повторными попытками. В MVP реализован
+`attempt.scored`; событие записывается в Postgres вместе с результатом, а
+доставка идёт из того же процесса API. Пока `replay()` не готов, новые попытки
+остаются `submitted` и событие не создаётся.
 
 | Событие | Потребитель |
 | --- | --- |
@@ -288,8 +291,7 @@ Web Push через VAPID, self-hosted - без FCM и внешних серви
   "actor":  { "account": { "name": "4471", "homePage": "https://vsm.local" } },
   "verb":   { "id": "http://adlnet.gov/expapi/verbs/completed" },
   "object": { "id": "https://vsm.local/scenarios/medical-incident-onboard" },
-  "result": { "score": { "raw": 247, "min": 0, "max": 400 }, "success": true,
-              "duration": "PT5M42S" }
+  "result": { "score": { "raw": 247 }, "success": true }
 }
 ```
 
@@ -382,16 +384,16 @@ sequenceDiagram
 ## 8. Развёртывание
 
 ```yaml
-# infra/docker-compose.yml - состав
-caddy       # TLS, статика PWA и admin, reverse proxy на api
-api         # NestJS: REST + SSE + scoring in-process
+# infra/docker-compose.yml - состав MVP
+api         # NestJS: REST, Swagger, webhook-доставка
 postgres    # 16, том для данных
-redis       # кеш лидерборда, очередь при вынесенном воркере
-# worker    # профиль production: тот же образ, другая команда запуска
+# nginx на хосте: HTTPS-прокси перед API
 ```
 
-Запуск: `cp .env.example .env && docker compose up -d && pnpm db:migrate && pnpm db:seed`.
-Всё локально, без внешних сервисов - пункт 2 требований к документации.
+Запуск: `cp infra/.env.example infra/.env`, заполнить секреты,
+`docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --build`,
+затем один раз запустить seed через `docker compose exec api npm run db:seed`.
+Миграции API запускает при старте. Подробности - `docs/deploy.md`.
 
 Сид: 3 депо, 30 сотрудников с историей за месяц, 3 сценария, 12 достижений, заполненный
 рейтинг. Пустой лидерборд на демо читается как недоделанный продукт.
