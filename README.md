@@ -163,21 +163,26 @@
 ## Запуск
 
 ```bash
-pnpm install
 cp infra/.env.example infra/.env
-docker compose -f infra/docker-compose.yml up -d postgres
-pnpm --filter api prisma migrate dev
-pnpm --filter api prisma db seed
-pnpm dev
+# Замените POSTGRES_PASSWORD и JWT_SECRET в infra/.env
+docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --build
+docker compose --env-file infra/.env -f infra/docker-compose.yml exec api npm run db:seed
 ```
 
-Приложение: http://localhost:5173
 Сервер: http://localhost:3000
+Список сценариев: http://localhost:3000/scenarios
 Swagger: http://localhost:3000/api/docs
 
-Тестовый вход: табельный номер `4471`, пароль `demo`.
+Seed создаёт 3 депо, 30 вымышленных сотрудников с историей за месяц,
+12 достижений и один опубликованный сценарий.
+Идентификатор сценария для `POST /attempts` печатается после запуска seed.
+Тестовый вход: табельный номер `4471`, пароль `demo`. Полученный JWT передавайте
+во всех остальных запросах как `Authorization: Bearer <токен>`.
+Перед запуском замените секреты в `infra/.env`. Postgres доступен только внутри
+Compose; API по умолчанию слушает `127.0.0.1:3000`. Для проверки с телефона в
+одной сети задайте `API_BIND_ADDRESS=0.0.0.0`, для сервера настройте HTTPS-прокси.
 
-Полная инструкция: [docs/deploy.md](docs/deploy.md) (появится к сдаче).
+Полная инструкция: [docs/deploy.md](docs/deploy.md).
 
 ## Кто что делает
 
