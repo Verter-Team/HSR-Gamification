@@ -1,7 +1,7 @@
 # Схема данных
 
-PostgreSQL 16, Drizzle ORM. DDL ниже - для чтения; в репозитории источником правды будут
-схемы Drizzle и миграции `drizzle-kit`.
+PostgreSQL 16, Prisma. DDL ниже описывает модель; источником для MVP служат
+`apps/api/prisma/schema.prisma` и миграции Prisma.
 
 Схема нейтральна к трактовке кейса: одни и те же таблицы обслуживают и тренажёр
 для сотрудников, и пассажирскую игру с программой лояльности. Различает их поле
@@ -227,9 +227,8 @@ CREATE UNIQUE INDEX leaderboard_global_user_idx ON leaderboard_global (user_id);
 CREATE INDEX        leaderboard_global_rank_idx ON leaderboard_global (rank);
 ```
 
-Обновляется воркером через `REFRESH MATERIALIZED VIEW CONCURRENTLY` после пачки
-начислений, не на каждую попытку. Горячий топ-100 дублируется в Redis как отсортированное
-множество - открытие экрана лидеров не трогает Postgres.
+Материализованная вьюха и Redis - целевой вариант для большой нагрузки. В MVP рейтинг
+читается из `user_stats` в PostgreSQL после обновления статистики при скоринге.
 
 Рейтинг по депо - та же вьюха с `PARTITION BY org_unit_id`. Локальный лидерборд
 мотивирует сильнее глобального: соревноваться со своей бригадой понятнее, чем
@@ -240,31 +239,27 @@ CREATE INDEX        leaderboard_global_rank_idx ON leaderboard_global (rank);
 ## Поток начисления
 
 ```
-mobile  ──POST /attempts──▶  api          записывает attempt (submitted)
-                                          + attempt_events
-                             api ──job──▶ BullMQ
-                                          │
-                             worker ◀─────┘
-                               │ replay(graph, events)  ← scenario-engine
-                               │ сверка с client_score
-                               │ attempts → scored
-                               │ points_ledger ← начисления по трекам
-                               │ правила ачивок → user_achievements
-                               │ user_stats, REFRESH leaderboard, Redis
-                               │
-                             api ──SSE──▶ mobile   attempt.scored
+mobile  ──POST /attempts──▶ api ──▶ attempts (submitted) + attempt_events
+                            │
+                            └── replay(graph, events) после подключения движка
+                                └── одна транзакция:
+                                    attempts → scored
+                                    points_ledger, user_achievements, user_stats
+                                    webhook_events → pending
+                                        └── POST attempt.scored → LMS
 ```
 
-Клиент показывает предварительный результат сразу по своему расчёту, канонический
-приходит через SSE. **Обязателен fallback:** если события нет за 5 секунд - оставить
-клиентский результат с пометкой «уточняется» и досинхронизировать позже. Без этого
-на сцене перед жюри экран будет крутить спиннер.
+`webhook_events` - Postgres outbox: `attempt_id` уникален, `payload` содержит
+событие и xAPI, `status` хранит `pending/sending/delivered/failed`, `attempts`
+и `next_attempt_at` управляют повторной доставкой. При перезапуске API событие
+остаётся в БД. Клиент узнаёт подтверждённый результат через `GET /attempts/:id`.
+Пока `replay()` не подключён, новые попытки остаются `submitted`.
 
 ## Демо-данные
 
-Скрипт `seed` заполняет: 3 депо, 30 сотрудников с историей попыток за месяц, 3 сценария,
-12 достижений, заполненный лидерборд. Пустой рейтинг на питче выглядит как незаконченный
-продукт - это дешёвая ошибка, которую легко не совершить.
+Скрипт `seed` заполняет: 3 депо, 30 сотрудников с историей попыток за месяц,
+1 опубликованный демо-сценарий, 12 достижений и заполненный лидерборд. Ещё два
+сценария будут добавлены после подготовки контента.
 
 Все имена в сиде вымышленные, формат «Проводник №4471». Реальных персональных данных
 в демо нет - п. 9.2 Положения.
