@@ -1,0 +1,28 @@
+# зависимости и сборка
+node_modules/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+# секреты и локальные настройки
+.env
+.env.*
+!.env.example
+infra/.env
+
+# базы и данные
+*.sqlite
+postgres-data/
+
+# редакторы и ОС
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# логи и временное
+*.log
+coverage/
+.cache/
+tmp/
