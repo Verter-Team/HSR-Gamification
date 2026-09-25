@@ -1,0 +1,34 @@
+import { Injectable } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+
+@Injectable()
+export class LeaderboardService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async list(depotId?: string, limit = 20) {
+    const stats = await this.prisma.userStats.findMany({
+      where: {
+        attemptsCount: { gt: 0 },
+        user: { role: UserRole.PLAYER, ...(depotId ? { orgUnitId: depotId } : {}) },
+      },
+      select: {
+        userId: true, totalScore: true, attemptsCount: true, passedCount: true,
+        user: { select: { displayName: true, orgUnit: { select: { id: true, name: true } } } },
+      },
+      orderBy: [{ totalScore: 'desc' }, { attemptsCount: 'asc' }, { user: { displayName: 'asc' } }],
+    });
+    let rank = 0;
+    const entries = stats.map((stat, index) => {
+      if (index === 0 || stat.totalScore !== stats[index - 1].totalScore || stat.attemptsCount !== stats[index - 1].attemptsCount) {
+        rank = index + 1;
+      }
+      return {
+        rank, userId: stat.userId, displayName: stat.user.displayName,
+        orgUnit: stat.user.orgUnit, totalScore: stat.totalScore,
+        attemptsCount: stat.attemptsCount, passedCount: stat.passedCount,
+      };
+    });
+    return { scope: depotId ? 'depot' : 'global', depotId: depotId ?? null, entries: entries.slice(0, limit) };
+  }
+}
