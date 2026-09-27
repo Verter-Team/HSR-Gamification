@@ -2,8 +2,18 @@
   "name": "@vsm/scenario-engine",
   "version": "0.1.0",
   "private": true,
-  "main": "src/index.ts",
+  "description": "Движок сценариев тренажёра: интерпретатор графа, линтер, правила прогресса",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
   "scripts": {
-    "test": "vitest run"
+    "build": "tsc -p tsconfig.json",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "scenarios": "node --import tsx scripts/build-scenarios.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.9.0"
   }
 }
