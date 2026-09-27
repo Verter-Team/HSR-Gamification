@@ -1,9 +1,13 @@
 {
   "name": "vsm-trainer",
   "private": true,
+  "description": "Тренажёр проводника ВСМ. У каждого пакета свой package.json и lock-файл, команды ниже - для удобства",
   "scripts": {
-    "dev": "pnpm -r --parallel run dev",
-    "build": "pnpm -r run build",
-    "test": "pnpm -r run test"
+    "install:all": "npm --prefix packages/scenario-engine install && npm --prefix packages/scenario-engine run build && npm --prefix apps/api install && npm --prefix apps/pwa install",
+    "scenarios": "npm --prefix packages/scenario-engine run scenarios",
+    "test": "npm --prefix packages/scenario-engine test && npm --prefix apps/api test",
+    "dev:api": "npm --prefix apps/api run dev",
+    "dev:pwa": "npm --prefix apps/pwa run dev",
+    "build": "npm --prefix packages/scenario-engine run build && npm --prefix apps/api run build && npm --prefix apps/pwa run build"
   }
 }
