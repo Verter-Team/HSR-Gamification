@@ -1,11 +1,12 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { AttemptStatus, Prisma, VersionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ScoringQueue } from '../scoring/scoring-queue';
 import { CreateAttemptDto } from './dto/create-attempt.dto';
 
 @Injectable()
 export class AttemptsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly scoring: ScoringQueue) {}
 
   async getResult(id: string, userId: string) {
     const attempt = await this.prisma.attempt.findFirst({
@@ -102,8 +103,14 @@ export class AttemptsService {
       throw error;
     }
 
-    // Подсчёт через replay() подключается после реализации общего движка.
-    return { attemptId: body.attemptId, status: 'submitted' };
+    // Сервер пересчитывает прохождение по логу тем же движком, что и приложение
+    const outcome = await this.scoring.enqueue(body.attemptId);
+    return {
+      attemptId: body.attemptId,
+      status: outcome.status,
+      ...(outcome.reason ? { reason: outcome.reason } : {}),
+      ...(outcome.rewards ? { rewards: outcome.rewards } : {}),
+    };
   }
 
   private repeatedSubmission(
