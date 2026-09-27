@@ -18,14 +18,36 @@ export class ScenarioResponse {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ example: 'demo-medical-incident' }) slug!: string;
   @ApiProperty() title!: string;
+  @ApiProperty({ nullable: true }) summary!: string | null;
+  @ApiProperty({ example: 'medicine', nullable: true }) branch!: string | null;
+  @ApiProperty({ example: 1 }) tier!: number;
+  @ApiProperty({ example: 500 }) xpReward!: number;
+  @ApiProperty({ type: [String], example: ['first-shift'] }) requires!: string[];
+  @ApiProperty({ type: [String], example: ['first_aid', 'coordination'] }) skills!: string[];
+  @ApiProperty({ example: 4 }) difficulty!: number;
+  @ApiProperty({ example: 6 }) estimatedMinutes!: number;
   @ApiProperty({ format: 'uuid' }) versionId!: string;
   @ApiProperty({ example: 1 }) version!: number;
   @ApiProperty({ type: 'object', additionalProperties: true, description: 'Полный граф сценария' }) graph!: object;
 }
 
+export class AttemptRewardsResponse {
+  @ApiProperty({ example: 500, description: 'Опыт за попытку' }) xp!: number;
+  @ApiProperty({ example: 20 }) coins!: number;
+  @ApiProperty({ description: 'Сценарий зачтён впервые' }) firstPass!: boolean;
+  @ApiProperty({ example: 1100 }) xpTotal!: number;
+  @ApiProperty({ example: 2 }) levelBefore!: number;
+  @ApiProperty({ example: 3 }) levelAfter!: number;
+  @ApiProperty({ example: 'Проводник' }) rank!: string;
+  @ApiProperty({ type: 'array', items: { type: 'object' }, example: [{ code: 'first-success', title: 'Зачёт', icon: 'check', tier: 1 }] }) newAchievements!: object[];
+  @ApiProperty({ type: 'array', items: { type: 'object' }, example: [{ slug: 'emergency-stop', title: 'Задымление в вагоне' }] }) unlockedScenarios!: object[];
+}
+
 export class AttemptAcceptedResponse {
   @ApiProperty({ format: 'uuid' }) attemptId!: string;
-  @ApiProperty({ example: 'submitted' }) status!: string;
+  @ApiProperty({ enum: ['scored', 'invalid'], description: 'Сервер пересчитал попытку по логу решений' }) status!: string;
+  @ApiProperty({ required: false, description: 'Почему попытка не принята' }) reason?: string;
+  @ApiProperty({ type: AttemptRewardsResponse, required: false }) rewards?: AttemptRewardsResponse;
 }
 
 export class AttemptResultResponse {
@@ -81,6 +103,10 @@ export class LeaderboardEntryResponse {
   @ApiProperty({ format: 'uuid' }) userId!: string;
   @ApiProperty() displayName!: string;
   @ApiProperty({ type: OrgUnitResponse, nullable: true }) orgUnit!: OrgUnitResponse | null;
+  @ApiProperty({ type: 'object', additionalProperties: true, nullable: true, example: { slug: 'neva', name: 'Нева', color: '#4EA8FF' } }) tribe!: object | null;
+  @ApiProperty({ example: 1100 }) xp!: number;
+  @ApiProperty({ example: 3 }) level!: number;
+  @ApiProperty({ example: 'Проводник' }) title!: string;
   @ApiProperty() totalScore!: number;
   @ApiProperty() attemptsCount!: number;
   @ApiProperty() passedCount!: number;
