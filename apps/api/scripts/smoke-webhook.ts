@@ -24,8 +24,8 @@ async function main(): Promise<void> {
   process.env.WEBHOOK_SECRET = secret;
   process.env.JWT_SECRET ??= 'local-smoke-jwt-secret';
 
-  const [{ NestFactory }, { AppModule }, { ProgressService }, { PrismaService }] = await Promise.all([
-    import('@nestjs/core'), import('../dist/app.module.js'), import('../dist/scoring/progress.service.js'), import('../dist/prisma/prisma.service.js'),
+  const [{ NestFactory }, { AppModule }, { PrismaService }, engine] = await Promise.all([
+    import('@nestjs/core'), import('../dist/app.module.js'), import('../dist/prisma/prisma.service.js'), import('@vsm/scenario-engine'),
   ]);
   const app = await NestFactory.create(AppModule, { logger: ['error', 'warn'] });
   try {
@@ -38,7 +38,20 @@ async function main(): Promise<void> {
     if (!login.ok) throw new Error(`Вход: HTTP ${login.status}`);
     const { accessToken, user } = await login.json() as { accessToken: string; user: { id: string } };
     const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
-    const scenarios = await (await fetch(`${base}/scenarios`, { headers })).json() as { versionId: string }[];
+    const scenarios = await (await fetch(`${base}/scenarios`, { headers })).json() as { slug: string; versionId: string; graph: unknown }[];
+    const intro = scenarios.find((scenario) => scenario.slug === 'first-shift');
+    if (!intro) throw new Error('Нет сценария first-shift, запустите seed');
+    const graph = engine.parseGraph(intro.graph);
+    // Все верные ответы: сцены пролистываются, на выборе берётся вариант с оценкой "верно"
+    let state = engine.createSession(graph);
+    for (;;) {
+      while (!engine.isFinished(state) && engine.currentNode(graph, state).kind === 'scene') state = engine.advance(graph, state);
+      if (engine.isFinished(state)) break;
+      const node = engine.currentNode(graph, state);
+      if (node.kind !== 'choice') throw new Error('Ожидался выбор');
+      state = engine.applyChoice(graph, state, node.options.find((option) => option.feedback?.verdict === 'correct')!.id, 1800);
+    }
+    const expected = engine.summarize(graph, state);
     const readStats = async () => {
       const response = await fetch(`${base}/users/${user.id}/stats`, { headers });
       if (!response.ok) throw new Error(`Статистика: HTTP ${response.status}`);
@@ -49,34 +62,24 @@ async function main(): Promise<void> {
     const submitted = await fetch(`${base}/attempts`, {
       method: 'POST', headers,
       body: JSON.stringify({
-        attemptId, scenarioVersionId: scenarios[0].versionId, startedAt: new Date().toISOString(), clientScore: 220,
-        events: [{ seq: 0, nodeId: 'first_choice', optionId: 'call_help', reactionMs: 1800 }],
+        attemptId, scenarioVersionId: intro.versionId, startedAt: new Date().toISOString(), clientScore: expected.score,
+        events: state.events,
       }),
     });
     if (submitted.status !== 202) throw new Error(`Отправка: HTTP ${submitted.status}: ${await submitted.text()}`);
-    const pending = await (await fetch(`${base}/attempts/${attemptId}`, { headers })).json() as { status: string; score: number | null };
-    if (pending.status !== 'submitted' || pending.score !== null) throw new Error(`После POST: ${JSON.stringify(pending)}`);
-    const progress = app.get(ProgressService);
-    const scored = await progress.recordScoredAttempt(attemptId, {
-      outcome: 'success', score: 220, passed: true,
-      metrics: { safety: 70, loyalty: 50 }, tracks: { emergency: 15 }, timeouts: 0, avgReactionMs: 1800,
-    });
-    if (scored !== 'scored') throw new Error(`Подсчёт: ${scored}`);
-    const repeated = await progress.recordScoredAttempt(attemptId, {
-      outcome: 'success', score: 220, passed: true,
-      metrics: { safety: 70, loyalty: 50 }, tracks: { emergency: 15 }, timeouts: 0, avgReactionMs: 1800,
-    });
-    if (repeated !== 'scored') throw new Error(`Повторный подсчёт: ${repeated}`);
+    const accepted = await submitted.json() as { status: string };
+    if (accepted.status !== 'scored') throw new Error(`После POST: ${JSON.stringify(accepted)}`);
     const result = await (await fetch(`${base}/attempts/${attemptId}`, { headers })).json() as { status: string; score: number };
-    if (result.status !== 'scored' || result.score !== 220) throw new Error(`Результат: ${JSON.stringify(result)}`);
+    if (result.status !== 'scored' || result.score !== expected.score) throw new Error(`Результат: ${JSON.stringify(result)}`);
     const after = await readStats();
-    if (after.totalScore !== before.totalScore + 220 || after.attemptsCount !== before.attemptsCount + 1 ||
+    if (after.totalScore !== before.totalScore + expected.score || after.attemptsCount !== before.attemptsCount + 1 ||
         after.passedCount !== before.passedCount + 1) {
       throw new Error(`Статистика: до=${JSON.stringify(before)}, после=${JSON.stringify(after)}`);
     }
     const prisma = app.get(PrismaService);
     const ledger = await prisma.pointsLedger.findMany({ where: { attemptId } });
-    if (ledger.length !== 1 || ledger[0].track !== 'emergency' || ledger[0].amount !== 15) {
+    const service = ledger.find((entry) => entry.track === 'service');
+    if (!service || service.amount !== expected.tracks.service) {
       throw new Error(`Начисления: ${JSON.stringify(ledger)}`);
     }
     const deadline = Date.now() + 20000;
@@ -91,7 +94,7 @@ async function main(): Promise<void> {
           item.payload.event !== 'attempt.scored' || item.payload.xapi.actor.account.name !== '4471')) {
       throw new Error(`Webhook: status=${row.status}, attempts=${row.attempts}, received=${JSON.stringify(received)}`);
     }
-    process.stdout.write(`OK: login -> scenarios -> submitted -> scored -> stats +220 -> ledger +15 -> signed webhook (500, 204), attemptId=${attemptId}\n`);
+    process.stdout.write(`OK: login -> scenarios -> replay на сервере -> scored -> stats +${expected.score} -> ledger -> signed webhook (500, 204), attemptId=${attemptId}\n`);
   } finally {
     await app.close();
     receiver.close();
