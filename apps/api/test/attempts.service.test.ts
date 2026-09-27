@@ -5,8 +5,18 @@ import { AttemptStatus, VersionStatus } from '@prisma/client';
 import { AttemptsService } from '../src/attempts/attempts.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { CreateAttemptDto } from '../src/attempts/dto/create-attempt.dto';
+import { ScoringQueue } from '../src/scoring/scoring-queue';
 
-test('сохраняет события и повторный запрос не создаёт вторую попытку', async () => {
+// Очередь скоринга подменяется: здесь проверяется только сохранение и идемпотентность
+class FakeQueue extends ScoringQueue {
+  calls: string[] = [];
+  async enqueue(attemptId: string) {
+    this.calls.push(attemptId);
+    return { status: 'scored' as const };
+  }
+}
+
+test('сохраняет события, сразу отдаёт на подсчёт и повторный запрос не создаёт вторую попытку', async () => {
   const attemptId = '5c590082-8e61-44b4-8c2c-6e6d5d7f9451';
   const userId = '578ac298-7f8f-49ea-9aba-18192069aa12';
   const scenarioVersionId = 'fb09dc41-4e9e-4fb7-89df-ec5a626c90c8';
@@ -39,13 +49,16 @@ test('сохраняет события и повторный запрос не 
     $transaction: async (callback: (tx: any) => Promise<unknown>) => callback(prisma),
   } as unknown as PrismaService;
 
-  const service = new AttemptsService(prisma);
-  assert.deepEqual(await service.submit(body, userId), { attemptId, status: 'submitted' });
+  const queue = new FakeQueue();
+  const service = new AttemptsService(prisma, queue);
+  assert.deepEqual(await service.submit(body, userId), { attemptId, status: 'scored' });
   assert.equal(writes, 1);
+  assert.deepEqual(queue.calls, [attemptId]);
   assert.equal(saved.events[0].nodeId, 'first_choice');
-  assert.equal(saved.score, undefined);
+  assert.equal(saved.score, undefined, 'клиентские очки не сохраняются как результат');
   assert.deepEqual(await service.submit(body, userId), { attemptId, status: 'submitted' });
   assert.equal(writes, 1);
+  assert.equal(queue.calls.length, 1, 'повтор не пересчитывается второй раз');
   await assert.rejects(() => service.submit({ ...body, clientScore: 999 }, userId), ConflictException);
   await assert.rejects(() => service.submit(body, '09cb8994-9b8c-4c23-a187-989cbbd99d58'), NotFoundException);
 });
@@ -71,7 +84,7 @@ test('возвращает текущее состояние и подтверж
     attempt: { findFirst: async ({ where }: { where: { id: string; userId: string } }) =>
       where.id === attemptId && where.userId === '578ac298-7f8f-49ea-9aba-18192069aa12' ? record : null },
   } as unknown as PrismaService;
-  const service = new AttemptsService(prisma);
+  const service = new AttemptsService(prisma, new FakeQueue());
   const ownerId = '578ac298-7f8f-49ea-9aba-18192069aa12';
 
   const pending = await service.getResult(attemptId, ownerId);
