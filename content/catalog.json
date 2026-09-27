@@ -1,0 +1,122 @@
+{
+  "skills": [
+    { "id": "service", "title": "Сервис" },
+    { "id": "communication", "title": "Коммуникация" },
+    { "id": "deescalation", "title": "Деэскалация" },
+    { "id": "first_aid", "title": "Первая помощь" },
+    { "id": "fire_safety", "title": "Пожарная безопасность" },
+    { "id": "coordination", "title": "Координация" }
+  ],
+  "branches": [
+    { "id": "intensive", "title": "Интенсив", "color": "#7C8CFF" },
+    { "id": "service", "title": "Сервис и общение", "color": "#2FD4A7" },
+    { "id": "medicine", "title": "Медицина", "color": "#FF6B81" },
+    { "id": "safety", "title": "Безопасность", "color": "#FFB547" },
+    { "id": "exam", "title": "Аттестация", "color": "#E8EDF7" }
+  ],
+  "scenarios": [
+    {
+      "slug": "first-shift",
+      "source": "tables/first-shift.csv",
+      "title": "Первая смена",
+      "summary": "Посадка, багаж, просьбы пассажиров и ребёнок в проходе. Вводный сценарий, как бассейн в Школе 21.",
+      "branch": "intensive",
+      "tier": 0,
+      "difficulty": 1,
+      "estimatedMinutes": 4,
+      "xp": 200,
+      "requires": [],
+      "skills": ["service", "communication"],
+      "tags": ["сервис", "посадка"],
+      "peerTask": {
+        "prompt": "Пассажир 5А просит пересадить его в соседний вагон, где много свободных мест. Напишите дословно, что вы ему скажете.",
+        "minLength": 60,
+        "checklist": [
+          { "id": "polite", "text": "Вежливое обращение, спокойный тон" },
+          { "id": "reason", "text": "Понятно объяснена причина, без канцелярита" },
+          { "id": "action", "text": "Есть конкретное следующее действие или альтернатива" },
+          { "id": "no-promise", "text": "Не обещает того, что не может гарантировать" }
+        ]
+      }
+    },
+    {
+      "slug": "passenger-conflict",
+      "source": "tables/passenger-conflict.csv",
+      "title": "Конфликт между пассажирами",
+      "summary": "Спор из-за шума переходит в ссору и может стать физической угрозой.",
+      "branch": "service",
+      "tier": 1,
+      "difficulty": 3,
+      "estimatedMinutes": 5,
+      "xp": 400,
+      "requires": ["first-shift"],
+      "skills": ["deescalation", "communication", "service"],
+      "tags": ["конфликт", "деэскалация"],
+      "peerTask": {
+        "prompt": "Пассажир 8А снимает вас на телефон и требует фамилию для жалобы. Напишите дословно, что вы ответите.",
+        "minLength": 60,
+        "checklist": [
+          { "id": "calm", "text": "Спокойный тон без встречных обвинений" },
+          { "id": "channel", "text": "Представляется и объясняет, куда подать обращение" },
+          { "id": "privacy", "text": "Не раскрывает данные других пассажиров" },
+          { "id": "no-pressure", "text": "Не требует удалить видео и не обещает компенсаций" }
+        ]
+      }
+    },
+    {
+      "slug": "medical-incident",
+      "source": "tables/medical-incident.csv",
+      "title": "Медицинский инцидент в пути",
+      "summary": "У пассажира признаки угрожающего состояния, а до станции ещё 25 минут.",
+      "branch": "medicine",
+      "tier": 1,
+      "difficulty": 4,
+      "estimatedMinutes": 6,
+      "xp": 500,
+      "requires": ["first-shift"],
+      "skills": ["first_aid", "coordination", "communication"],
+      "tags": ["медицина", "первая помощь"],
+      "peerTask": {
+        "prompt": "Прибыла медицинская бригада. Напишите, что вы им скажете при передаче пострадавшего.",
+        "minLength": 60,
+        "checklist": [
+          { "id": "symptoms", "text": "Когда и какие симптомы появились" },
+          { "id": "actions", "text": "Что сделано и когда: вызов, СЛР, АНД" },
+          { "id": "meds", "text": "Сказано, давали ли пассажиру лекарства" },
+          { "id": "facts", "text": "Коротко и по фактам, без догадок о диагнозе" }
+        ]
+      }
+    },
+    {
+      "slug": "emergency-stop",
+      "source": "tables/emergency-stop.csv",
+      "title": "Задымление в вагоне",
+      "summary": "Запах гари и дым из-под панели. Нужно сообщить, локализовать и вывести людей.",
+      "branch": "safety",
+      "tier": 2,
+      "difficulty": 5,
+      "estimatedMinutes": 6,
+      "xp": 600,
+      "requires": ["medical-incident"],
+      "skills": ["fire_safety", "coordination"],
+      "tags": ["пожар", "эвакуация"],
+      "peerTask": {
+        "prompt": "Доложите начальнику поезда об эвакуации из задымлённой зоны. Напишите текст доклада.",
+        "minLength": 60,
+        "checklist": [
+          { "id": "source", "text": "Где очаг и что наблюдалось" },
+          { "id": "people", "text": "Сколько людей переведено и куда" },
+          { "id": "missing", "text": "Есть ли пропавшие или пострадавшие" },
+          { "id": "doors", "text": "Какие двери и зоны закрыты" }
+        ]
+      }
+    }
+  ],
+  "upcoming": [
+    { "slug": "reduced-mobility", "title": "Пассажир на кресле-коляске", "summary": "Посадка, размещение и эвакуация маломобильного пассажира.", "branch": "service", "tier": 2, "xp": 450, "requires": ["passenger-conflict"] },
+    { "slug": "lost-child", "title": "Потерялся ребёнок", "summary": "Мама не может найти сына на остановке в Твери.", "branch": "service", "tier": 2, "xp": 450, "requires": ["passenger-conflict"] },
+    { "slug": "allergy", "title": "Аллергическая реакция", "summary": "У пассажира отёк после обеда в вагоне-ресторане.", "branch": "medicine", "tier": 2, "xp": 550, "requires": ["medical-incident"] },
+    { "slug": "forced-stop", "title": "Вынужденная остановка в пути", "summary": "Поезд встал между станциями, связи нет, на улице мороз.", "branch": "safety", "tier": 3, "xp": 650, "requires": ["emergency-stop"] },
+    { "slug": "final-exam", "title": "Аттестация: смена целиком", "summary": "Москва - Санкт-Петербург, всё и сразу. Допуск к работе наставником.", "branch": "exam", "tier": 4, "xp": 1500, "requires": ["reduced-mobility", "allergy", "forced-stop"] }
+  ]
+}
