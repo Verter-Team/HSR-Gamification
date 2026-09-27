@@ -2,7 +2,7 @@
 
 ## Локально через Docker Compose
 
-Нужны Docker с Compose и свободный порт 3000. Из корня репозитория:
+Нужны Docker с Compose и свободные порты 3000 и 8080. Из корня репозитория:
 
 ```bash
 cp infra/.env.example infra/.env
@@ -13,9 +13,53 @@ docker compose --env-file infra/.env -f infra/docker-compose.yml exec api npm ru
 curl -fsS http://127.0.0.1:3000/health
 ```
 
-API сам применяет миграции при старте. Seed запускайте один раз для демо:
-он создаёт 30 вымышленных сотрудников, историю попыток, достижения и рейтинг.
-Swagger - `http://127.0.0.1:3000/api/docs`. Демо-вход: `4471` / `demo`.
+Поднимаются три контейнера: `postgres`, `api` и `web`. `web` - nginx с приложением
+проводника, он же проксирует `/api/` на сервер. Приложение: `http://localhost:8080`.
+
+API сам применяет миграции при старте. Seed собирает граф из `content/`, создаёт
+4 племени, 30 вымышленных сотрудников и проигрывает их историю движком, плюс
+взаимные проверки, достижения и магазин. Seed можно запускать повторно: он пересоздаёт
+демо-историю, поэтому перед показом жюри его стоит повторить.
+Swagger - `http://127.0.0.1:3000/api/docs`. Демо-вход: проводник `4471`,
+руководитель `1001`, пароль `demo`.
+
+**Windows и кириллица в пути.** Если папка проекта лежит по пути с русскими буквами
+(например, `Хакатон Московского транспорта`), сборка Docker падает с ошибкой
+`header key "x-docker-expose-session-sharedkey" contains value with non-printable ASCII
+characters`. Обход - ссылка на папку с латинским путём:
+
+```powershell
+New-Item -ItemType Junction -Path C:\vsm -Target (Get-Location).Path
+cd C:\vsm
+```
+
+и дальше те же команды из `C:\vsm`.
+
+## Без Docker для разработки
+
+Нужны Node 22+ и Postgres. Из корня:
+
+```bash
+npm run install:all
+# в apps/api/.env: DATABASE_URL=postgresql://..., JWT_SECRET=любая-строка
+cd apps/api && npx prisma migrate deploy && npm run db:seed && npm run dev
+# в другом окне
+cd apps/pwa && npm run dev   # http://localhost:5173, /api проксируется на :3000
+```
+
+Если API на другом порту, задайте `API_PROXY=http://127.0.0.1:ПОРТ` перед `npm run dev`.
+
+## Проверки
+
+```bash
+npm test                                   # движок + юнит-тесты сервера
+cd apps/api
+API_BASE=http://127.0.0.1:8080/api node --import tsx scripts/demo-smoke.ts
+```
+
+`demo-smoke` проходит весь путь демо через HTTP: вход, граф, прохождение медицины,
+повышение уровня, открытие сценария, подделанный лог, взаимную проверку, магазин,
+племена, аналитику руководителя. Он меняет данные - после него повторите seed.
 Для остановки используйте `docker compose --env-file infra/.env -f infra/docker-compose.yml down`.
 Том `postgres-data` сохраняет данные между запусками. Команда `down -v` удаляет их.
 
@@ -63,33 +107,13 @@ docker compose --env-file infra/.env -f infra/docker-compose.yml exec api npm ru
 
 ## Проверка с телефона
 
-Откройте с телефона `https://ваш-домен/api/docs`. Для проверки в одной локальной
-сети можно выставить `API_BIND_ADDRESS=0.0.0.0` в `infra/.env`, перезапустить
-Compose и открыть `http://IP-компьютера:3000/api/docs`. Для публичного адреса
-используйте только HTTPS.
+Телефон и компьютер в одной Wi-Fi сети: откройте `http://IP-компьютера:8080`
+(по умолчанию `web` слушает все интерфейсы, см. `WEB_BIND_ADDRESS`). Приложение
+работает и по HTTP в локальной сети, но установить его на домашний экран и включить
+офлайн-кеш браузер разрешит только по HTTPS. Для показа жюри нужен сервер с доменом
+и HTTPS: направьте HTTPS-прокси на порт 8080, и QR-код на адрес откроет приложение.
 
-В Swagger выполните `POST /auth/login` с `{"externalId":"4471","password":"demo"}`.
-Нажмите Authorize и вставьте `accessToken`. Затем вызовите `GET /scenarios`,
-скопируйте `versionId` первого сценария и отправьте `POST /attempts`:
-
-```json
-{
-  "attemptId": "5c590082-8e61-44b4-8c2c-6e6d5d7f9451",
-  "scenarioVersionId": "ВСТАВЬТЕ-versionId-ИЗ-ОТВЕТА",
-  "startedAt": "2026-09-25T12:00:00.000Z",
-  "events": [
-    { "seq": 0, "nodeId": "first_choice", "optionId": "call_help", "reactionMs": 1800 }
-  ]
-}
-```
-
-Для каждой новой проверки меняйте `attemptId` на новый UUID и время начала на
-текущее. Ответ 202 подтверждает сохранение. `GET /attempts/:id` должен вернуть
-тот же ID и `submitted`. `GET /users/:id/stats`, `/achievements` и `/leaderboard`
-покажут демо-данные seed. Переход `submitted` -> `scored` и отправка webhook
-после обычного POST зависят от подключения `replay()` общего движка; пока его
-нет, проверить на телефоне эту часть нельзя. Локальный тест отправки webhook
-можно выполнить после сборки API и seed:
+Локальный тест отправки webhook можно выполнить после сборки API и seed:
 
 ```bash
 cd apps/api
@@ -97,6 +121,6 @@ DATABASE_URL='postgresql://...' node --import tsx scripts/smoke-webhook.ts
 ```
 
 Скрипт создаёт локальный webhook-приёмник, один раз отвечает 500, затем 204 и
-проверяет подпись, повторную доставку и результат через API. Он использует
-тестовый канонический результат демо-сценария; в обычном API этот результат
-должен приходить из `replay()`.
+проверяет подпись, повторную доставку и результат через API. Прохождение
+отправляется обычным `POST /attempts`, сервер пересчитывает его через `replay()`.
+Скрипт рассчитан на свежую базу после seed.
