@@ -1,7 +1,0 @@
-{
-  "name": "Тренажёр проводника ВСМ",
-  "short_name": "ВСМ Тренажёр",
-  "start_url": "/",
-  "display": "standalone",
-  "lang": "ru"
-}
