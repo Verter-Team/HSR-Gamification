@@ -42,22 +42,47 @@ enum WebhookStatus {
   @@map("webhook_status")
 }
 
+enum ReviewStatus {
+  PENDING  @map("pending")
+  REVIEWED @map("reviewed")
+
+  @@map("review_status")
+}
+
 model User {
-  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  role         UserRole       @default(PLAYER)
-  externalId   String         @unique @map("external_id")
-  displayName  String         @map("display_name")
-  passwordHash String?        @map("password_hash")
-  orgUnitId    String?        @map("org_unit_id") @db.Uuid
-  orgUnit      OrgUnit?       @relation(fields: [orgUnitId], references: [id])
-  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  attempts     Attempt[]
-  points       PointsLedger[]
-  stats        UserStats?
-  achievements UserAchievement[]
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role           UserRole       @default(PLAYER)
+  externalId     String         @unique @map("external_id")
+  displayName    String         @map("display_name")
+  passwordHash   String?        @map("password_hash")
+  orgUnitId      String?        @map("org_unit_id") @db.Uuid
+  orgUnit        OrgUnit?       @relation(fields: [orgUnitId], references: [id])
+  tribeId        String?        @map("tribe_id") @db.Uuid
+  tribe          Tribe?         @relation(fields: [tribeId], references: [id])
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  attempts       Attempt[]
+  points         PointsLedger[]
+  stats          UserStats?
+  achievements   UserAchievement[]
+  submissions    PeerReview[]   @relation("ReviewAuthor")
+  reviewsWritten PeerReview[]   @relation("ReviewReviewer")
+  purchases      Purchase[]
 
   @@index([orgUnitId])
+  @@index([tribeId])
   @@map("users")
+}
+
+// Племена как в Школе 21: сквозные команды из разных депо, соревнуются по сезонам
+model Tribe {
+  id    String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug  String @unique
+  name  String
+  color String
+  motto String
+  users User[]
+
+  @@map("tribes")
 }
 
 model OrgUnit {
@@ -69,13 +94,23 @@ model OrgUnit {
   @@map("org_units")
 }
 
+// Сценарий - узел графа прогресса. Без опубликованной версии показывается как "скоро".
 model Scenario {
-  id        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug      String            @unique
-  title     String
-  isActive  Boolean           @default(true) @map("is_active")
-  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  versions  ScenarioVersion[]
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug             String            @unique
+  title            String
+  summary          String?
+  branch           String?
+  tier             Int               @default(0)
+  xpReward         Int               @default(0) @map("xp_reward")
+  requires         String[]          @default([])
+  skills           String[]          @default([])
+  difficulty       Int               @default(1)
+  estimatedMinutes Int               @default(5) @map("estimated_minutes")
+  isActive         Boolean           @default(true) @map("is_active")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  versions         ScenarioVersion[]
+  peerReviews      PeerReview[]
 
   @@map("scenarios")
 }
@@ -119,6 +154,7 @@ model Attempt {
   ledgerEntries     PointsLedger[]
   unlockedAchievements UserAchievement[]
   webhookEvents     WebhookEvent[]
+  peerReview        PeerReview?
 
   @@index([userId, scoredAt(sort: Desc)])
   @@index([scenarioVersionId])
@@ -201,6 +237,7 @@ model UserAchievement {
   @@map("user_achievements")
 }
 
+// Кеш прогресса. Источник правды - points_ledger и attempts, пересчёт в refreshUserProgress.
 model UserStats {
   userId        String   @id @map("user_id") @db.Uuid
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -211,8 +248,71 @@ model UserStats {
   avgLoyalty    Decimal? @map("avg_loyalty") @db.Decimal(5, 2)
   streakDays    Int      @default(0) @map("streak_days")
   lastAttemptAt DateTime? @map("last_attempt_at") @db.Timestamptz(6)
+  xp            Int      @default(0)
+  level         Int      @default(0)
+  coins         Int      @default(0)
+  reviewPoints  Int      @default(0) @map("review_points")
+  reviewsGiven  Int      @default(0) @map("reviews_given")
   updatedAt     DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   @@index([totalScore(sort: Desc), attemptsCount])
+  @@index([xp(sort: Desc)])
   @@map("user_stats")
+}
+
+// Взаимная проверка: ответ на открытый вопрос после сценария оценивает коллега по чек-листу
+model PeerReview {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId  String       @unique @map("attempt_id") @db.Uuid
+  attempt    Attempt      @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  authorId   String       @map("author_id") @db.Uuid
+  author     User         @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  scenarioId String       @map("scenario_id") @db.Uuid
+  scenario   Scenario     @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  prompt     String
+  checklist  Json         @db.JsonB
+  answer     String
+  status     ReviewStatus @default(PENDING)
+  reviewerId String?      @map("reviewer_id") @db.Uuid
+  reviewer   User?        @relation("ReviewReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  checks     String[]     @default([])
+  comment    String?
+  helpful    Boolean?
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  reviewedAt DateTime?    @map("reviewed_at") @db.Timestamptz(6)
+  ratedAt    DateTime?    @map("rated_at") @db.Timestamptz(6)
+
+  @@index([status, createdAt])
+  @@index([authorId, createdAt(sort: Desc)])
+  @@index([reviewerId])
+  @@map("peer_reviews")
+}
+
+model ShopItem {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String     @unique
+  title       String
+  description String
+  icon        String
+  price       Int
+  sortOrder   Int        @default(0) @map("sort_order")
+  isActive    Boolean    @default(true) @map("is_active")
+  purchases   Purchase[]
+
+  @@map("shop_items")
+}
+
+model Purchase {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemId    String   @map("item_id") @db.Uuid
+  item      ShopItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  price     Int
+  // requested - заявка у руководителя, issued - выдано
+  status    String   @default("requested")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("purchases")
 }
