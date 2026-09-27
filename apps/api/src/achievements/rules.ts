@@ -5,6 +5,13 @@ export interface RuleAttempt {
   metrics: unknown;
   timeouts: number;
   scoredAt: Date | null;
+  scenarioSlug?: string;
+}
+
+// Прогресс вне попыток: уровень и взаимные проверки
+export interface RuleContext {
+  level: number;
+  reviewsGiven: number;
 }
 
 type Comparator = 'lt' | 'lte' | 'gt' | 'gte' | 'eq' | 'ne';
@@ -30,12 +37,17 @@ function matchesCount(rule: unknown, actual: number): boolean {
   return compare(actual, rule.cmp as Comparator, rule.value);
 }
 
-export function evaluateAchievementRule(rule: unknown, history: RuleAttempt[]): boolean {
-  if (!isRecord(rule) || history.length === 0) return false;
-  const current = history[history.length - 1];
+export function evaluateAchievementRule(rule: unknown, history: RuleAttempt[], context?: RuleContext): boolean {
+  if (!isRecord(rule)) return false;
+  if (Array.isArray(rule.all)) return rule.all.length > 0 && rule.all.every((part) => evaluateAchievementRule(part, history, context));
+  if (Array.isArray(rule.any)) return rule.any.some((part) => evaluateAchievementRule(part, history, context));
 
-  if (Array.isArray(rule.all)) return rule.all.length > 0 && rule.all.every((part) => evaluateAchievementRule(part, history));
-  if (Array.isArray(rule.any)) return rule.any.some((part) => evaluateAchievementRule(part, history));
+  // Правила без попыток: уровень и проверки коллег
+  if ('level' in rule) return context !== undefined && matchesCount(rule.level, context.level);
+  if ('reviewsGiven' in rule) return context !== undefined && matchesCount(rule.reviewsGiven, context.reviewsGiven);
+
+  if (history.length === 0) return false;
+  const current = history[history.length - 1];
 
   let windowHistory = history;
   if (rule.window !== undefined) {
@@ -46,6 +58,15 @@ export function evaluateAchievementRule(rule: unknown, history: RuleAttempt[]): 
     windowHistory = history.filter((attempt) => attempt.scoredAt && attempt.scoredAt.getTime() >= cutoff);
   }
 
+  // Текущая попытка относится к конкретному сценарию - используется внутри all
+  if (typeof rule.scenario === 'string') return current.scenarioSlug === rule.scenario;
+  if (typeof rule.passedScenario === 'string') {
+    return history.some((attempt) => attempt.passed && attempt.scenarioSlug === rule.passedScenario);
+  }
+  if ('distinctPassed' in rule) {
+    const slugs = new Set(windowHistory.filter((attempt) => attempt.passed && attempt.scenarioSlug).map((attempt) => attempt.scenarioSlug));
+    return matchesCount(rule.distinctPassed, slugs.size);
+  }
   if ('attempts' in rule) return matchesCount(rule.attempts, windowHistory.length);
   if ('passed' in rule) return matchesCount(rule.passed, windowHistory.filter((attempt) => attempt.passed).length);
   if ('score' in rule) return current.score !== null && matchesCount(rule.score, current.score);
