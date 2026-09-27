@@ -1,1 +1,593 @@
-{}
+{
+  "schemaVersion": 1,
+  "slug": "medical-incident",
+  "title": "Медицинский инцидент в пути",
+  "summary": "У пассажира признаки угрожающего состояния, а до станции ещё 25 минут.",
+  "audience": "staff",
+  "role": "проводник",
+  "difficulty": 4,
+  "estimatedMinutes": 6,
+  "tags": [
+    "медицина",
+    "первая помощь"
+  ],
+  "metrics": [
+    {
+      "id": "safety",
+      "title": "Безопасность",
+      "min": 0,
+      "max": 100,
+      "initial": 60,
+      "direction": "higher-better",
+      "display": "shield"
+    },
+    {
+      "id": "loyalty",
+      "title": "Лояльность пассажира",
+      "min": 0,
+      "max": 100,
+      "initial": 60,
+      "direction": "higher-better",
+      "display": "hearts"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "first_aid",
+      "title": "Первая помощь"
+    },
+    {
+      "id": "coordination",
+      "title": "Координация"
+    },
+    {
+      "id": "communication",
+      "title": "Коммуникация"
+    }
+  ],
+  "scoring": {
+    "base": 0,
+    "metricWeights": {
+      "safety": 2,
+      "loyalty": 1
+    },
+    "timeBonus": {
+      "maxPointsPerDecision": 10,
+      "fullBonusWithinMs": 3000,
+      "zeroBonusAfterMs": 12000
+    },
+    "timeoutPenalty": 15,
+    "passThreshold": 150
+  },
+  "entry": "intro",
+  "nodes": {
+    "intro": {
+      "id": "intro",
+      "kind": "scene",
+      "text": "На перегоне пассажир 14А жалуется на сильную давящую боль в груди, бледнеет и тяжело дышит. До станции ещё 25 минут.",
+      "next": "q1"
+    },
+    "q1": {
+      "id": "q1",
+      "kind": "choice",
+      "prompt": "Что сделать в первую очередь?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Связаться с начальником поезда, запросить медицинскую помощь и сразу оценить сознание и дыхание",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 20
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 5
+            },
+            {
+              "op": "track",
+              "track": "first_aid",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "coordination",
+              "amount": 5
+            },
+            {
+              "op": "track",
+              "track": "communication",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. При признаках угрожающего состояния помощь вызывают без промедления, одновременно оценивая состояние пострадавшего.",
+            "showImmediately": false
+          },
+          "next": "q2_prepared"
+        },
+        {
+          "id": "b",
+          "text": "Дать пассажиру таблетку из своей аптечки",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -25
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Лекарство без назначения и проверки противопоказаний может ухудшить состояние. Проводник не ставит диагноз.",
+            "showImmediately": false
+          },
+          "next": "complication"
+        },
+        {
+          "id": "c",
+          "text": "Принести воды и подождать несколько минут",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -20
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Забота заметна пассажиру, но ожидание теряет время при возможном сердечном приступе.",
+            "showImmediately": false
+          },
+          "next": "deterioration"
+        }
+      ],
+      "timer": {
+        "seconds": 10,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -25
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 0
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Промедление при признаках угрожающего состояния повышает риск тяжёлого исхода.",
+            "showImmediately": false
+          },
+          "next": "deterioration"
+        }
+      }
+    },
+    "q2_prepared": {
+      "id": "q2_prepared",
+      "kind": "choice",
+      "prompt": "Пассажир в сознании. Как организовать помощь до прибытия старшего?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Поручить коллеге объявить поиск медработника и принести аптечку с АНД, самому остаться рядом и контролировать дыхание",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 15
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 5
+            },
+            {
+              "op": "track",
+              "track": "first_aid",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "coordination",
+              "amount": 5
+            },
+            {
+              "op": "track",
+              "track": "communication",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. Задачи распределены, пострадавший не остаётся без наблюдения, оборудование готовится заранее.",
+            "showImmediately": false
+          },
+          "next": "collapse_prepared"
+        },
+        {
+          "id": "b",
+          "text": "Самому уйти по вагонам искать врача",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -10
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 5
+            },
+            {
+              "op": "track",
+              "track": "first_aid",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "acceptable",
+            "text": "Поиск медработника полезен, но пострадавшего нельзя оставлять без наблюдения. Задачу лучше поручить коллеге.",
+            "showImmediately": false
+          },
+          "next": "collapse_unprepared"
+        },
+        {
+          "id": "c",
+          "text": "Предложить пассажиру пройти в тамбур, чтобы не тревожить соседей",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -20
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Приватность повышает комфорт, но физическая нагрузка и удаление от места помощи создают риск.",
+            "showImmediately": false
+          },
+          "next": "collapse_unprepared"
+        }
+      ],
+      "timer": {
+        "seconds": 15,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -15
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -5
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Помощь вызвана, но аптечка, АНД и наблюдение не организованы.",
+            "showImmediately": false
+          },
+          "next": "collapse_unprepared"
+        }
+      }
+    },
+    "complication": {
+      "id": "complication",
+      "kind": "scene",
+      "text": "После неизвестной таблетки пассажир жалуется на резкую слабость и перестаёт отвечать на вопросы.",
+      "next": "q2_unprepared"
+    },
+    "deterioration": {
+      "id": "deterioration",
+      "kind": "scene",
+      "text": "Пассажир сползает в кресле и перестаёт отвечать. Соседи начинают паниковать.",
+      "next": "q2_unprepared"
+    },
+    "q2_unprepared": {
+      "id": "q2_unprepared",
+      "kind": "choice",
+      "prompt": "Пассажир не реагирует. Ваше действие?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Позвать конкретного человека на помощь, оценить нормальное дыхание не дольше 10 секунд и организовать вызов 112 через поездную бригаду",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 15
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -5
+            },
+            {
+              "op": "track",
+              "track": "first_aid",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "coordination",
+              "amount": 5
+            },
+            {
+              "op": "track",
+              "track": "communication",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. Сначала проверяют сознание и дыхание, затем без задержки вызывают помощь и действуют по результату проверки.",
+            "showImmediately": false
+          },
+          "next": "q3_late"
+        },
+        {
+          "id": "b",
+          "text": "Поднять пассажира на ноги и провести к служебному купе",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -30
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 0
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Перемещение человека без сознания опасно и задерживает оценку дыхания.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        },
+        {
+          "id": "c",
+          "text": "Ждать начальника поезда, не трогая пассажира",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -25
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Ожидание без проверки дыхания теряет критическое время.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        }
+      ],
+      "timer": {
+        "seconds": 10,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -30
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Состояние не оценено, экстренная помощь не начата.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        }
+      }
+    },
+    "collapse_prepared": {
+      "id": "collapse_prepared",
+      "kind": "scene",
+      "text": "Пассажир теряет сознание. Аптечка и автоматический наружный дефибриллятор уже рядом.",
+      "next": "q3"
+    },
+    "collapse_unprepared": {
+      "id": "collapse_unprepared",
+      "kind": "scene",
+      "text": "Пассажир теряет сознание. Оборудование ещё не принесли, вокруг собрались люди.",
+      "next": "q3"
+    },
+    "q3": {
+      "id": "q3",
+      "kind": "choice",
+      "prompt": "Нормального дыхания нет. Что делать?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Начать СЛР 30:2, попросить подать АНД, выполнять его голосовые команды и продолжать до передачи специалистам или появления признаков жизни",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 30
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 5
+            },
+            {
+              "op": "track",
+              "track": "first_aid",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "coordination",
+              "amount": 5
+            },
+            {
+              "op": "track",
+              "track": "communication",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. При отсутствии нормального дыхания начинают СЛР и применяют АНД, как только он доступен.",
+            "showImmediately": false
+          },
+          "next": "end_good"
+        },
+        {
+          "id": "b",
+          "text": "Уложить в устойчивое боковое положение и ждать",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -25
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Боковое положение применяют при наличии нормального дыхания. Здесь дыхания нет, нужна СЛР.",
+            "showImmediately": false
+          },
+          "next": "end_mid"
+        },
+        {
+          "id": "c",
+          "text": "Долго искать пульс, прежде чем начинать помощь",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -20
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 0
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Длительная проверка пульса задерживает СЛР. Для решения ориентируются на отсутствие сознания и нормального дыхания.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        }
+      ],
+      "timer": {
+        "seconds": 10,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -30
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "СЛР не начата вовремя.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        }
+      }
+    },
+    "q3_late": {
+      "id": "q3_late",
+      "kind": "scene",
+      "text": "Нормального дыхания нет. Вы начинаете СЛР, но вызов помощи и подготовка оборудования уже задержаны.",
+      "next": "end_mid"
+    },
+    "end_good": {
+      "id": "end_good",
+      "kind": "ending",
+      "outcome": "success",
+      "title": "Отличная работа",
+      "text": "Вы быстро организовали помощь, не оставили пассажира одного и начали СЛР без задержки. Ситуация передана специалистам."
+    },
+    "end_mid": {
+      "id": "end_mid",
+      "kind": "ending",
+      "outcome": "partial",
+      "title": "Есть что улучшить",
+      "text": "Помощь оказана, но часть критического времени потеряна. На разборе повторите алгоритм оценки дыхания и начала СЛР."
+    },
+    "end_bad": {
+      "id": "end_bad",
+      "kind": "ending",
+      "outcome": "failure",
+      "title": "Сценарий не зачтён",
+      "text": "Критические действия задержаны или выполнены небезопасно. Сценарий не зачтён."
+    }
+  },
+  "peerTask": {
+    "prompt": "Прибыла медицинская бригада. Напишите, что вы им скажете при передаче пострадавшего.",
+    "minLength": 60,
+    "checklist": [
+      {
+        "id": "symptoms",
+        "text": "Когда и какие симптомы появились"
+      },
+      {
+        "id": "actions",
+        "text": "Что сделано и когда: вызов, СЛР, АНД"
+      },
+      {
+        "id": "meds",
+        "text": "Сказано, давали ли пассажиру лекарства"
+      },
+      {
+        "id": "facts",
+        "text": "Коротко и по фактам, без догадок о диагнозе"
+      }
+    ]
+  }
+}

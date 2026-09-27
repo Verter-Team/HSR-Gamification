@@ -1,0 +1,613 @@
+{
+  "schemaVersion": 1,
+  "slug": "first-shift",
+  "title": "Первая смена",
+  "summary": "Посадка, багаж, просьбы пассажиров и ребёнок в проходе. Вводный сценарий, как бассейн в Школе 21.",
+  "audience": "staff",
+  "role": "проводник",
+  "difficulty": 1,
+  "estimatedMinutes": 4,
+  "tags": [
+    "сервис",
+    "посадка"
+  ],
+  "metrics": [
+    {
+      "id": "safety",
+      "title": "Безопасность",
+      "min": 0,
+      "max": 100,
+      "initial": 60,
+      "direction": "higher-better",
+      "display": "shield"
+    },
+    {
+      "id": "loyalty",
+      "title": "Лояльность пассажира",
+      "min": 0,
+      "max": 100,
+      "initial": 60,
+      "direction": "higher-better",
+      "display": "hearts"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "service",
+      "title": "Сервис"
+    },
+    {
+      "id": "communication",
+      "title": "Коммуникация"
+    }
+  ],
+  "scoring": {
+    "base": 0,
+    "metricWeights": {
+      "safety": 2,
+      "loyalty": 1
+    },
+    "timeBonus": {
+      "maxPointsPerDecision": 10,
+      "fullBonusWithinMs": 3000,
+      "zeroBonusAfterMs": 12000
+    },
+    "timeoutPenalty": 15,
+    "passThreshold": 150
+  },
+  "entry": "intro",
+  "nodes": {
+    "intro": {
+      "id": "intro",
+      "kind": "scene",
+      "text": "Ваша первая смена на ВСМ Москва - Санкт-Петербург. Идёт посадка, до отправления 7 минут. У вашего вагона очередь.",
+      "next": "q1"
+    },
+    "q1": {
+      "id": "q1",
+      "kind": "choice",
+      "prompt": "Телефон сел, билет показать не могу. Но я точно покупал!",
+      "speaker": "Пассажир",
+      "options": [
+        {
+          "id": "a",
+          "text": "Попросить отойти в сторону, продолжить посадку остальных и проверить билет по фамилии через начальника поезда",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 10
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 5
+            },
+            {
+              "op": "track",
+              "track": "service",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "communication",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. Очередь не стоит, а у пассажира остаётся шанс подтвердить право на проезд.",
+            "showImmediately": false
+          },
+          "next": "q2"
+        },
+        {
+          "id": "b",
+          "text": "Пропустить в вагон, чтобы не задерживать очередь",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -15
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Пассажир доволен, но в вагоне оказался человек без подтверждённого билета. Проверка должна быть до отправления.",
+            "showImmediately": false
+          },
+          "next": "s_noticket"
+        },
+        {
+          "id": "c",
+          "text": "Сразу отказать в посадке без билета на экране",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 5
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -15
+            },
+            {
+              "op": "track",
+              "track": "service",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "acceptable",
+            "text": "Порядок соблюдён, но способы проверки не использованы. Пассажир мог иметь право на проезд.",
+            "showImmediately": false
+          },
+          "next": "s_complaint"
+        }
+      ],
+      "timer": {
+        "seconds": 15,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -5
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Пока вы думали, очередь встала, посадка задерживается.",
+            "showImmediately": false
+          },
+          "next": "s_queue"
+        }
+      }
+    },
+    "s_noticket": {
+      "id": "s_noticket",
+      "kind": "scene",
+      "text": "Через 10 минут выясняется, что у пассажира билет на завтрашний поезд. Начальник поезда спрашивает, как он прошёл в вагон.",
+      "next": "q2"
+    },
+    "s_complaint": {
+      "id": "s_complaint",
+      "kind": "scene",
+      "text": "Пассажир остаётся на платформе и пишет жалобу. Позже выясняется, что билет у него был.",
+      "next": "q2"
+    },
+    "s_queue": {
+      "id": "s_queue",
+      "kind": "scene",
+      "text": "Посадка идёт с задержкой, пассажиры в очереди раздражены.",
+      "next": "q2"
+    },
+    "q2": {
+      "id": "q2",
+      "kind": "choice",
+      "prompt": "Поставьте мой чемодан на полку над креслом, мне тяжело. Он килограмм двадцать.",
+      "speaker": "Пассажирка 12В",
+      "options": [
+        {
+          "id": "a",
+          "text": "Помочь разместить чемодан в багажном отсеке у входа и объяснить, где он будет стоять",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 10
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 10
+            },
+            {
+              "op": "track",
+              "track": "service",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "communication",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. Тяжёлый багаж над головой опасен при торможении, а в отсеке он надёжно закреплён.",
+            "showImmediately": false
+          },
+          "next": "s_depart"
+        },
+        {
+          "id": "b",
+          "text": "Поднять чемодан на полку над креслом",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -10
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Пассажирка довольна, но на скорости до 400 км/ч тяжёлый чемодан на полке может упасть при резком торможении.",
+            "showImmediately": false
+          },
+          "next": "s_bag"
+        },
+        {
+          "id": "c",
+          "text": "Сказать, что багаж - ответственность пассажира",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 0
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -15
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Формально так и есть, но проводник помогает с размещением. Отказ воспринимается как равнодушие.",
+            "showImmediately": false
+          },
+          "next": "s_depart"
+        }
+      ],
+      "timer": {
+        "seconds": 15,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -5
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Пассажирка стоит в проходе с чемоданом и мешает посадке.",
+            "showImmediately": false
+          },
+          "next": "s_depart"
+        }
+      }
+    },
+    "s_bag": {
+      "id": "s_bag",
+      "kind": "scene",
+      "text": "На первом торможении чемодан сползает с полки и задевает плечо соседа. Обошлось без травмы, но сосед недоволен.",
+      "next": "q3"
+    },
+    "s_depart": {
+      "id": "s_depart",
+      "kind": "scene",
+      "text": "Поезд отправился. Через 20 минут вы идёте по вагону.",
+      "next": "q3"
+    },
+    "q3": {
+      "id": "q3",
+      "kind": "choice",
+      "prompt": "В соседнем вагоне полно свободных мест у окна. Можно я туда пересяду?",
+      "speaker": "Пассажир 5А",
+      "options": [
+        {
+          "id": "a",
+          "text": "Объяснить, что место закреплено за билетом, уточнить у начальника поезда возможность пересадки и вернуться с ответом",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 5
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 5
+            },
+            {
+              "op": "track",
+              "track": "service",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "communication",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. Вы не нарушаете порядок размещения и не бросаете просьбу без ответа.",
+            "showImmediately": false
+          },
+          "next": "q4"
+        },
+        {
+          "id": "b",
+          "text": "Разрешить сесть на любое свободное место",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -10
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 15
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Пассажир рад, но место может быть продано на следующей станции, а учёт пассажиров в вагонах нарушается.",
+            "showImmediately": false
+          },
+          "next": "q4"
+        },
+        {
+          "id": "c",
+          "text": "Ответить, что не положено, и пойти дальше",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 0
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -15
+            },
+            {
+              "op": "track",
+              "track": "service",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "acceptable",
+            "text": "Правило соблюдено, но пассажир не получил ни объяснения, ни альтернативы.",
+            "showImmediately": false
+          },
+          "next": "q4"
+        }
+      ],
+      "timer": {
+        "seconds": 15,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 0
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Пассажир ждёт ответа и решает, что его игнорируют.",
+            "showImmediately": false
+          },
+          "next": "q4"
+        }
+      }
+    },
+    "q4": {
+      "id": "q4",
+      "kind": "choice",
+      "prompt": "Ребёнок лет пяти бегает по проходу. Его родители спят. Сзади едет тележка с горячими напитками.",
+      "options": [
+        {
+          "id": "a",
+          "text": "Разбудить родителей, спокойно объяснить риск при торможении и предложить раскраску из набора для детей",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 10
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 5
+            },
+            {
+              "op": "track",
+              "track": "service",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "communication",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. Ответственность остаётся у родителей, а вы убрали риск и сохранили хороший тон.",
+            "showImmediately": false
+          },
+          "next": "itog"
+        },
+        {
+          "id": "b",
+          "text": "Самому взять ребёнка за руку и отвести на место",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 5
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -15
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Риск снят, но трогать чужого ребёнка без родителей не стоит. Это может вызвать испуг и конфликт.",
+            "showImmediately": false
+          },
+          "next": "itog"
+        },
+        {
+          "id": "c",
+          "text": "Не вмешиваться, дети есть дети",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -15
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Родители не потревожены, но ребёнок может обжечься или упасть при торможении.",
+            "showImmediately": false
+          },
+          "next": "itog"
+        }
+      ],
+      "timer": {
+        "seconds": 10,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -10
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 0
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Пока вы решали, ребёнок чуть не столкнулся с тележкой.",
+            "showImmediately": false
+          },
+          "next": "itog"
+        }
+      }
+    },
+    "itog": {
+      "id": "itog",
+      "kind": "branch",
+      "cases": [
+        {
+          "when": {
+            "op": "all",
+            "of": [
+              {
+                "op": "metric",
+                "metric": "safety",
+                "cmp": "gte",
+                "value": 85
+              },
+              {
+                "op": "metric",
+                "metric": "loyalty",
+                "cmp": "gte",
+                "value": 75
+              }
+            ]
+          },
+          "next": "end_good"
+        },
+        {
+          "when": {
+            "op": "metric",
+            "metric": "safety",
+            "cmp": "gte",
+            "value": 65
+          },
+          "next": "end_mid"
+        }
+      ],
+      "fallback": "end_bad"
+    },
+    "end_good": {
+      "id": "end_good",
+      "kind": "ending",
+      "outcome": "success",
+      "title": "Отличная работа",
+      "text": "Посадка прошла чётко, пассажиры спокойны и довольны. Хорошее начало работы на ВСМ."
+    },
+    "end_mid": {
+      "id": "end_mid",
+      "kind": "ending",
+      "outcome": "partial",
+      "title": "Есть что улучшить",
+      "text": "Смена прошла без происшествий, но в паре ситуаций вы выбрали удобство вместо безопасности или наоборот."
+    },
+    "end_bad": {
+      "id": "end_bad",
+      "kind": "ending",
+      "outcome": "failure",
+      "title": "Сценарий не зачтён",
+      "text": "Несколько решений создали риск для пассажиров. Пройдите интенсив ещё раз."
+    }
+  },
+  "peerTask": {
+    "prompt": "Пассажир 5А просит пересадить его в соседний вагон, где много свободных мест. Напишите дословно, что вы ему скажете.",
+    "minLength": 60,
+    "checklist": [
+      {
+        "id": "polite",
+        "text": "Вежливое обращение, спокойный тон"
+      },
+      {
+        "id": "reason",
+        "text": "Понятно объяснена причина, без канцелярита"
+      },
+      {
+        "id": "action",
+        "text": "Есть конкретное следующее действие или альтернатива"
+      },
+      {
+        "id": "no-promise",
+        "text": "Не обещает того, что не может гарантировать"
+      }
+    ]
+  }
+}

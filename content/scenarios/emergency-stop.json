@@ -1,1 +1,740 @@
-{}
+{
+  "schemaVersion": 1,
+  "slug": "emergency-stop",
+  "title": "Задымление в вагоне",
+  "summary": "Запах гари и дым из-под панели. Нужно сообщить, локализовать и вывести людей.",
+  "audience": "staff",
+  "role": "проводник",
+  "difficulty": 5,
+  "estimatedMinutes": 6,
+  "tags": [
+    "пожар",
+    "эвакуация"
+  ],
+  "metrics": [
+    {
+      "id": "safety",
+      "title": "Безопасность",
+      "min": 0,
+      "max": 100,
+      "initial": 60,
+      "direction": "higher-better",
+      "display": "shield"
+    },
+    {
+      "id": "loyalty",
+      "title": "Лояльность пассажира",
+      "min": 0,
+      "max": 100,
+      "initial": 60,
+      "direction": "higher-better",
+      "display": "hearts"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "fire_safety",
+      "title": "Пожарная безопасность"
+    },
+    {
+      "id": "coordination",
+      "title": "Координация"
+    }
+  ],
+  "scoring": {
+    "base": 0,
+    "metricWeights": {
+      "safety": 2,
+      "loyalty": 1
+    },
+    "timeBonus": {
+      "maxPointsPerDecision": 10,
+      "fullBonusWithinMs": 3000,
+      "zeroBonusAfterMs": 12000
+    },
+    "timeoutPenalty": 15,
+    "passThreshold": 150
+  },
+  "entry": "intro",
+  "nodes": {
+    "intro": {
+      "id": "intro",
+      "kind": "scene",
+      "text": "На ходу в салоне появляется запах гари. Из-под панели в служебной зоне идёт тонкая струя дыма. Пассажиры пока спокойны.",
+      "next": "q1"
+    },
+    "q1": {
+      "id": "q1",
+      "kind": "choice",
+      "prompt": "Ваше первое действие?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Немедленно сообщить начальнику поезда по внутренней связи, ограничить доступ к зоне и оценить обстановку с безопасной дистанции",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 20
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 0
+            },
+            {
+              "op": "track",
+              "track": "fire_safety",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "coordination",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. Поездная бригада получает информацию сразу, а пассажиры не попадают к возможному очагу.",
+            "showImmediately": false
+          },
+          "next": "q2_controlled"
+        },
+        {
+          "id": "b",
+          "text": "Самостоятельно открыть дымящуюся панель, чтобы найти провод",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -25
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Открытие панели без отключения и средств защиты может усилить горение и привести к поражению током.",
+            "showImmediately": false
+          },
+          "next": "smoke_heavy"
+        },
+        {
+          "id": "c",
+          "text": "Полить панель водой из бутылки",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -30
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Вода рядом с электрооборудованием создаёт дополнительную опасность.",
+            "showImmediately": false
+          },
+          "next": "smoke_heavy"
+        },
+        {
+          "id": "d",
+          "text": "Подождать, пока запах станет сильнее, чтобы не тревожить пассажиров",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -25
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Комфорт сохранён лишь на секунды, но раннее время для локализации потеряно.",
+            "showImmediately": false
+          },
+          "next": "smoke_heavy"
+        }
+      ],
+      "timer": {
+        "seconds": 10,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -30
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -5
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Сообщение об угрозе задержано, дым усиливается.",
+            "showImmediately": false
+          },
+          "next": "smoke_heavy"
+        }
+      }
+    },
+    "q2_controlled": {
+      "id": "q2_controlled",
+      "kind": "choice",
+      "prompt": "Под панелью видно небольшое пламя. Что делать до прибытия старшего?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Действовать по команде бригады: применить предусмотренный огнетушитель, только если путь отхода свободен, а коллега начинает перемещение пассажиров",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 25
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 0
+            },
+            {
+              "op": "track",
+              "track": "fire_safety",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "coordination",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. Тушение допустимо при контролируемом риске, свободном пути отхода и параллельной защите пассажиров.",
+            "showImmediately": false
+          },
+          "next": "q3_evacuate"
+        },
+        {
+          "id": "b",
+          "text": "Сразу перевести ближайших пассажиров в соседний вагон и закрыть дверь зоны, не задерживаясь ради имущества",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 15
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -5
+            },
+            {
+              "op": "track",
+              "track": "fire_safety",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "acceptable",
+            "text": "Допустимо. Локализация может быть менее быстрой, зато люди выведены из опасной зоны.",
+            "showImmediately": false
+          },
+          "next": "q3_evacuate"
+        },
+        {
+          "id": "c",
+          "text": "Попросить пассажира помочь держать огнетушитель",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -20
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Неподготовленного пассажира нельзя вовлекать в работу у очага, если есть безопасный путь эвакуации.",
+            "showImmediately": false
+          },
+          "next": "smoke_heavy"
+        },
+        {
+          "id": "d",
+          "text": "Использовать воду, потому что пламя небольшое",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -30
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Вода на электрооборудовании опасна и может распространить повреждение.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        }
+      ],
+      "timer": {
+        "seconds": 10,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -20
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -5
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Очаг не локализован, дым распространяется.",
+            "showImmediately": false
+          },
+          "next": "smoke_heavy"
+        }
+      }
+    },
+    "smoke_heavy": {
+      "id": "smoke_heavy",
+      "kind": "scene",
+      "text": "Дым быстро заполняет служебную зону. Пассажиры встают, один человек пытается открыть наружную дверь.",
+      "next": "q2_smoke"
+    },
+    "q2_smoke": {
+      "id": "q2_smoke",
+      "kind": "choice",
+      "prompt": "Как организовать действия?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Сообщить об ухудшении, по команде бригады переводить людей в безопасный соседний вагон, помогать детям и маломобильным, закрывать двери за группой",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 30
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -5
+            },
+            {
+              "op": "track",
+              "track": "fire_safety",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "coordination",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. Управляемое перемещение и закрытые двери ограничивают дым и панику.",
+            "showImmediately": false
+          },
+          "next": "q3_evacuate"
+        },
+        {
+          "id": "b",
+          "text": "Открыть наружные двери до полной остановки",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -40
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 0
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Открывать наружные двери движущегося поезда крайне опасно.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        },
+        {
+          "id": "c",
+          "text": "Крикнуть всем бежать куда угодно подальше от дыма",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -30
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -20
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Неуправляемое движение создаёт давку и мешает учёту людей.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        },
+        {
+          "id": "d",
+          "text": "Разрешить сначала собрать багаж",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -25
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 15
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Сохранение имущества не оправдывает задержку в задымлённой зоне.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        }
+      ],
+      "timer": {
+        "seconds": 10,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -35
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -15
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Дым и паника усиливаются без управляемого перемещения.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        }
+      }
+    },
+    "q3_evacuate": {
+      "id": "q3_evacuate",
+      "kind": "choice",
+      "prompt": "Я без чемодана не уйду. Там документы и ноутбук.",
+      "speaker": "Пассажир 11В",
+      "options": [
+        {
+          "id": "a",
+          "text": "Чётко потребовать оставить багаж, назначить сопровождающего и направить пассажира по безопасному маршруту",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 20
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -10
+            },
+            {
+              "op": "track",
+              "track": "fire_safety",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "coordination",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. Жизнь важнее имущества, а конкретный сопровождающий снижает риск сопротивления и паники.",
+            "showImmediately": false
+          },
+          "next": "q4_account"
+        },
+        {
+          "id": "b",
+          "text": "Дать 30 секунд забрать чемодан",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -20
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 15
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Пассажир доволен, но задержка в дыму и встречное движение за багажом опасны.",
+            "showImmediately": false
+          },
+          "next": "end_mid"
+        },
+        {
+          "id": "c",
+          "text": "Молча потянуть пассажира за одежду",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -10
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -20
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Физическое действие без команды может вызвать падение и сопротивление. Сначала нужна ясная инструкция и помощь.",
+            "showImmediately": false
+          },
+          "next": "end_mid"
+        }
+      ],
+      "timer": {
+        "seconds": 10,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -25
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Пассажир задерживает поток и остаётся у опасной зоны.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        }
+      }
+    },
+    "q4_account": {
+      "id": "q4_account",
+      "kind": "choice",
+      "prompt": "Основная группа в соседнем вагоне. Что сделать перед докладом старшему?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Пересчитать людей, опросить группу, проверить купе, тамбур и туалет только если это безопасно, доложить о пропавших",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 25
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 5
+            },
+            {
+              "op": "track",
+              "track": "fire_safety",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "coordination",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. Учёт нужен, чтобы никто не остался в опасной зоне, но проверяющий не должен входить в непроходимый дым.",
+            "showImmediately": false
+          },
+          "next": "end_good"
+        },
+        {
+          "id": "b",
+          "text": "Считать, что все вышли, раз никто не зовёт",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -20
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Тишина не подтверждает эвакуацию. В закрытых помещениях мог остаться человек.",
+            "showImmediately": false
+          },
+          "next": "end_mid"
+        },
+        {
+          "id": "c",
+          "text": "В одиночку вернуться через плотный дым и проверить каждый отсек",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -30
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 0
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Проверка ценой собственной жизни создаёт ещё одного пострадавшего. Действовать нужно по команде и с допустимым риском.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        },
+        {
+          "id": "d",
+          "text": "Разрешить пассажирам самим вернуться за знакомыми",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -35
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Возврат неподготовленных людей в дым увеличивает число пострадавших и разрушает учёт.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        }
+      ],
+      "timer": {
+        "seconds": 15,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -20
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -5
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Учёт не выполнен, старший не знает, все ли покинули опасную зону.",
+            "showImmediately": false
+          },
+          "next": "end_mid"
+        }
+      }
+    },
+    "end_good": {
+      "id": "end_good",
+      "kind": "ending",
+      "outcome": "success",
+      "title": "Отличная работа",
+      "text": "Угроза своевременно передана, пассажиры организованно перемещены, люди учтены. Ситуация передана поездной бригаде."
+    },
+    "end_mid": {
+      "id": "end_mid",
+      "kind": "ending",
+      "outcome": "partial",
+      "title": "Есть что улучшить",
+      "text": "Пассажиры выведены, но задержка или неполный учёт создали дополнительный риск."
+    },
+    "end_bad": {
+      "id": "end_bad",
+      "kind": "ending",
+      "outcome": "failure",
+      "title": "Сценарий не зачтён",
+      "text": "Действия усилили угрозу или подвергли людей опасности. Сценарий не зачтён."
+    }
+  },
+  "peerTask": {
+    "prompt": "Доложите начальнику поезда об эвакуации из задымлённой зоны. Напишите текст доклада.",
+    "minLength": 60,
+    "checklist": [
+      {
+        "id": "source",
+        "text": "Где очаг и что наблюдалось"
+      },
+      {
+        "id": "people",
+        "text": "Сколько людей переведено и куда"
+      },
+      {
+        "id": "missing",
+        "text": "Есть ли пропавшие или пострадавшие"
+      },
+      {
+        "id": "doors",
+        "text": "Какие двери и зоны закрыты"
+      }
+    ]
+  }
+}

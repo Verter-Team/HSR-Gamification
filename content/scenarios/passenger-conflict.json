@@ -1,1 +1,687 @@
-{}
+{
+  "schemaVersion": 1,
+  "slug": "passenger-conflict",
+  "title": "Конфликт между пассажирами",
+  "summary": "Спор из-за шума переходит в ссору и может стать физической угрозой.",
+  "audience": "staff",
+  "role": "проводник",
+  "difficulty": 3,
+  "estimatedMinutes": 5,
+  "tags": [
+    "конфликт",
+    "деэскалация"
+  ],
+  "metrics": [
+    {
+      "id": "safety",
+      "title": "Безопасность",
+      "min": 0,
+      "max": 100,
+      "initial": 60,
+      "direction": "higher-better",
+      "display": "shield"
+    },
+    {
+      "id": "loyalty",
+      "title": "Лояльность пассажира",
+      "min": 0,
+      "max": 100,
+      "initial": 60,
+      "direction": "higher-better",
+      "display": "hearts"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "deescalation",
+      "title": "Деэскалация"
+    },
+    {
+      "id": "communication",
+      "title": "Коммуникация"
+    },
+    {
+      "id": "service",
+      "title": "Сервис"
+    }
+  ],
+  "scoring": {
+    "base": 0,
+    "metricWeights": {
+      "safety": 2,
+      "loyalty": 1
+    },
+    "timeBonus": {
+      "maxPointsPerDecision": 10,
+      "fullBonusWithinMs": 3000,
+      "zeroBonusAfterMs": 12000
+    },
+    "timeoutPenalty": 15,
+    "passThreshold": 150
+  },
+  "entry": "intro",
+  "nodes": {
+    "intro": {
+      "id": "intro",
+      "kind": "scene",
+      "text": "Пассажир 8А смотрит видео без наушников. Пассажирка 8Б резко отодвигает его столик и требует тишины. Они переходят на крик.",
+      "next": "q1"
+    },
+    "q1": {
+      "id": "q1",
+      "kind": "choice",
+      "prompt": "Как начать разговор?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Спокойно представиться, попросить снизить голос и по очереди коротко выслушать каждого",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 10
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 10
+            },
+            {
+              "op": "track",
+              "track": "deescalation",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "communication",
+              "amount": 5
+            },
+            {
+              "op": "track",
+              "track": "service",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. Нейтральное начало снижает напряжение и даёт понять факты без публичного унижения сторон.",
+            "showImmediately": false
+          },
+          "next": "q2_calm"
+        },
+        {
+          "id": "b",
+          "text": "Громко потребовать, чтобы пассажир 8А немедленно извинился",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -10
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -15
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Публичное назначение виноватого усиливает конфликт до выяснения обстоятельств.",
+            "showImmediately": false
+          },
+          "next": "escalation"
+        },
+        {
+          "id": "c",
+          "text": "Сразу пригрозить обоим высадкой и полицией",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 5
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -20
+            },
+            {
+              "op": "track",
+              "track": "deescalation",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "acceptable",
+            "text": "Граница обозначена, но угроза без оценки ситуации выглядит несоразмерно и мешает деэскалации.",
+            "showImmediately": false
+          },
+          "next": "escalation"
+        }
+      ],
+      "timer": {
+        "seconds": 15,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -15
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -15
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Без вмешательства конфликт усиливается и начинает мешать всему вагону.",
+            "showImmediately": false
+          },
+          "next": "escalation"
+        }
+      }
+    },
+    "q2_calm": {
+      "id": "q2_calm",
+      "kind": "choice",
+      "prompt": "Пересадите меня в бизнес-класс, там наверняка тихо.",
+      "speaker": "Пассажирка 8Б",
+      "options": [
+        {
+          "id": "a",
+          "text": "Проверить доступные места по правилам перевозчика, предложить наушники и временно развести стороны в пределах разрешённых мест",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 10
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 10
+            },
+            {
+              "op": "track",
+              "track": "deescalation",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "communication",
+              "amount": 5
+            },
+            {
+              "op": "track",
+              "track": "service",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. Вы предлагаете выполнимые меры и не обещаете услугу, на которую нет подтверждённого права.",
+            "showImmediately": false
+          },
+          "next": "q3_service"
+        },
+        {
+          "id": "b",
+          "text": "Разрешить ей занять любое свободное место в бизнес-классе",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -15
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 20
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Пассажирка довольна, но самовольное изменение класса и места создаёт новый спор и нарушает порядок обслуживания.",
+            "showImmediately": false
+          },
+          "next": "q3_service"
+        },
+        {
+          "id": "c",
+          "text": "Отказать без объяснений и приказать обоим молчать",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 5
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -20
+            },
+            {
+              "op": "track",
+              "track": "deescalation",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "acceptable",
+            "text": "Шум временно прекращён, но причина конфликта не разобрана, а тон провоцирует жалобу.",
+            "showImmediately": false
+          },
+          "next": "q3_service"
+        }
+      ],
+      "timer": {
+        "seconds": 15,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -15
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Пауза воспринимается как бездействие, спор возобновляется.",
+            "showImmediately": false
+          },
+          "next": "escalation"
+        }
+      }
+    },
+    "escalation": {
+      "id": "escalation",
+      "kind": "scene",
+      "text": "Пассажир 8А встаёт, приближается к соседке и говорит с угрозой. Другие пассажиры достают телефоны.",
+      "next": "q2_threat"
+    },
+    "q2_threat": {
+      "id": "q2_threat",
+      "kind": "choice",
+      "prompt": "Что делать при угрозе физического конфликта?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Сохранять дистанцию, вызвать начальника поезда или сотрудника безопасности и отвести окружающих из зоны риска",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 25
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -5
+            },
+            {
+              "op": "track",
+              "track": "deescalation",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "communication",
+              "amount": 5
+            },
+            {
+              "op": "track",
+              "track": "service",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. Приоритет - безопасность людей и своевременное подключение уполномоченных сотрудников.",
+            "showImmediately": false
+          },
+          "next": "q3_threat"
+        },
+        {
+          "id": "b",
+          "text": "Схватить пассажира за руку и усадить силой",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -25
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -20
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Физическое вмешательство без непосредственной необходимости может вызвать драку и травмы.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        },
+        {
+          "id": "c",
+          "text": "Начать спорить и снимать пассажира на личный телефон",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -20
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -20
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Спор и личная съёмка усиливают провокацию и не защищают окружающих.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        }
+      ],
+      "timer": {
+        "seconds": 10,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -30
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -15
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Угроза не локализована, пассажиры остаются в зоне риска.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        }
+      }
+    },
+    "q3_service": {
+      "id": "q3_service",
+      "kind": "choice",
+      "prompt": "Я всё снял. Назовите фамилию, я напишу жалобу.",
+      "speaker": "Пассажир 8А",
+      "options": [
+        {
+          "id": "a",
+          "text": "Спокойно представиться по установленной форме, объяснить канал обращения и зафиксировать факты инцидента без данных других пассажиров",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 10
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 10
+            },
+            {
+              "op": "track",
+              "track": "deescalation",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "communication",
+              "amount": 5
+            },
+            {
+              "op": "track",
+              "track": "service",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. Право на обращение сохраняется, а персональные данные других людей не раскрываются.",
+            "showImmediately": false
+          },
+          "next": "end_good"
+        },
+        {
+          "id": "b",
+          "text": "Потребовать удалить видео и забрать телефон",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -20
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -25
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Самовольное изъятие телефона обостряет ситуацию и выходит за рамки сервисного диалога.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        },
+        {
+          "id": "c",
+          "text": "Пообещать бесплатное повышение класса, чтобы жалобы не было",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -15
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 20
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Обещание быстро снижает недовольство, но проводник не должен обещать неподтверждённую компенсацию.",
+            "showImmediately": false
+          },
+          "next": "end_mid"
+        }
+      ],
+      "timer": {
+        "seconds": 15,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 0
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -15
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Пассажир не получает ответа и считает, что обращение игнорируют.",
+            "showImmediately": false
+          },
+          "next": "end_mid"
+        }
+      }
+    },
+    "q3_threat": {
+      "id": "q3_threat",
+      "kind": "choice",
+      "prompt": "Подошёл начальник поезда. Как передать ситуацию?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Кратко сообщить наблюдаемые факты, сохранить разделение сторон, назвать свидетелей и оформить запись об инциденте",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": 20
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 5
+            },
+            {
+              "op": "track",
+              "track": "deescalation",
+              "amount": 10
+            },
+            {
+              "op": "track",
+              "track": "communication",
+              "amount": 5
+            },
+            {
+              "op": "track",
+              "track": "service",
+              "amount": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "correct",
+            "text": "Верно. Факты без оценочных ярлыков помогают принять решение и сохранить контролируемую обстановку.",
+            "showImmediately": false
+          },
+          "next": "end_good"
+        },
+        {
+          "id": "b",
+          "text": "Заставить пассажиров пожать руки и закрыть вопрос",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -10
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 5
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Принудительное примирение не устраняет угрозу и может снова сблизить конфликтующие стороны.",
+            "showImmediately": false
+          },
+          "next": "end_mid"
+        },
+        {
+          "id": "c",
+          "text": "Пообещать, что последствий не будет, если пассажир сядет",
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -20
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": 10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Обещание снижает напряжение, но лишает старшего объективной информации и создаёт риск повторения.",
+            "showImmediately": false
+          },
+          "next": "end_mid"
+        }
+      ],
+      "timer": {
+        "seconds": 15,
+        "onTimeout": {
+          "effects": [
+            {
+              "op": "metric",
+              "metric": "safety",
+              "delta": -20
+            },
+            {
+              "op": "metric",
+              "metric": "loyalty",
+              "delta": -10
+            }
+          ],
+          "feedback": {
+            "verdict": "wrong",
+            "text": "Старший не получает фактов, решение задерживается.",
+            "showImmediately": false
+          },
+          "next": "end_bad"
+        }
+      }
+    },
+    "end_good": {
+      "id": "end_good",
+      "kind": "ending",
+      "outcome": "success",
+      "title": "Отличная работа",
+      "text": "Конфликт остановлен без применения силы. Пассажирам предложено выполнимое решение, факты зафиксированы."
+    },
+    "end_mid": {
+      "id": "end_mid",
+      "kind": "ending",
+      "outcome": "partial",
+      "title": "Есть что улучшить",
+      "text": "Открытой угрозы больше нет, но сервисное или процедурное решение создало риск повторной жалобы."
+    },
+    "end_bad": {
+      "id": "end_bad",
+      "kind": "ending",
+      "outcome": "failure",
+      "title": "Сценарий не зачтён",
+      "text": "Конфликт усилился или возник риск травм. Требуется повторить алгоритм деэскалации и эскалации угрозы."
+    }
+  },
+  "peerTask": {
+    "prompt": "Пассажир 8А снимает вас на телефон и требует фамилию для жалобы. Напишите дословно, что вы ответите.",
+    "minLength": 60,
+    "checklist": [
+      {
+        "id": "calm",
+        "text": "Спокойный тон без встречных обвинений"
+      },
+      {
+        "id": "channel",
+        "text": "Представляется и объясняет, куда подать обращение"
+      },
+      {
+        "id": "privacy",
+        "text": "Не раскрывает данные других пассажиров"
+      },
+      {
+        "id": "no-pressure",
+        "text": "Не требует удалить видео и не обещает компенсаций"
+      }
+    ]
+  }
+}
